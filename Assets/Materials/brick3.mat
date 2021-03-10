@@ -73,5 +73,5 @@ Material:
     - _UVSec: 0
     - _ZWrite: 1
     m_Colors:
-    - _Color: {r: 0.2966803, g: 0.3962019, b: 0.5566038, a: 1}
+    - _Color: {r: 0.9843138, g: 0.7686275, b: 0.43137258, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
