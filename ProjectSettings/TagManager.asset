@@ -10,6 +10,7 @@ TagManager:
   - Weapon_Shotgun
   - Weapon_Flaregun
   - Weapon_Rifle
+  - LookPosition
   layers:
   - Default
   - TransparentFX

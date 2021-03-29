@@ -10,7 +10,7 @@ using Vector3 = UnityEngine.Vector3;
 public class PlayerController : MonoBehaviour
 {
     private Animator playerAnim;
-    private Rigidbody playerRb;
+    public CharacterController pController;
 
 
     //Analog inputs
@@ -29,12 +29,14 @@ public class PlayerController : MonoBehaviour
     public float speed = 10.0f;
     public float shit;
     public int jumpCount; //throwback to CORONA SDK a.k.a.  S O L A R  2 D
+    public bool jumpCheck;
     public float rollSpeed;
     public int rollTimer;
     public bool isCrouching = false;
     public bool hasGun;
 
     public Vector3 movement;
+    public Vector3 velocity;
 
     //WEAPONS - must keep track of:
     //What our current weapon is (true/false)
@@ -63,7 +65,7 @@ public class PlayerController : MonoBehaviour
 
     void Awake()
     {
-        Physics.gravity = new Vector3(0,-60.1f,0);
+        Physics.gravity = new Vector3(0, -60.1f, 0);
     }
 
     // Start is called before the first frame update
@@ -72,10 +74,9 @@ public class PlayerController : MonoBehaviour
         playerAnim = GetComponent<Animator>();
         spine = playerAnim.GetBoneTransform(HumanBodyBones.Spine);
         head = playerAnim.GetBoneTransform(HumanBodyBones.Head);
-        playerRb = GetComponent<Rigidbody>();
 
         //Initialize our rotation offsets for spine/head based on current weapon
-        weaponRotationOffsets = new Vector3[10,2] {
+        weaponRotationOffsets = new Vector3[10, 2] {
         {new Vector3(10,0,-90), new Vector3(-7,0,-90) }, //fists
         {new Vector3(15,0,-90), new Vector3(-15,0,-90) }, //pistol
         {new Vector3(15,50,-90), new Vector3(20,-45,-90) }, //shotgun
@@ -104,7 +105,8 @@ public class PlayerController : MonoBehaviour
 
         playerAnim.SetFloat("Speed_f", Mathf.Abs(movement.x));
         //Crouching
-        if (Input.GetKeyDown("joystick button 1") && jumpCount>=1 && !isCrouching) {
+        if (Input.GetKeyDown("joystick button 1") && jumpCount >= 1 && !isCrouching)
+        {
             playerAnim.SetBool("Crouch_b", true);
             isCrouching = true;
         }
@@ -115,13 +117,28 @@ public class PlayerController : MonoBehaviour
             isCrouching = false;
         }
 
-        //Player jumps?
+        pController.Move(movement * speed * Time.deltaTime);
+
+        velocity.y += gravityModifier * Time.deltaTime;
 
 
-        
+        jumpCheck = pController.isGrounded;
+
+        if(jumpCheck)
+        {
+            velocity.y = 0;
+            hasDoubleJumped = false;
+            playerAnim.SetBool("Grounded", true);
+            playerAnim.SetBool("Falling_b", false);
+        } else
+            pController.Move(velocity * Time.deltaTime);
+
+
+        //Jump();
+
 
         //Play falling animation after jump or fall
-        if (playerRb.velocity.y < -0.1 && jumpCount<1)
+        if (pController.velocity.y < -0.1 && !jumpCheck)
         {
             playerAnim.SetBool("Falling_b", true);
         }
@@ -129,19 +146,10 @@ public class PlayerController : MonoBehaviour
         //Rotate character relative to left analog movement
         ChangeDirection();
 
-        //Movement based on left analog
-            playerRb.AddForce(Vector3.right * joypadInputXL * speed, ForceMode.Impulse);
-
-            if(Mathf.Abs(joypadInputXL * speed)!=0)
-                playerAnim.SetFloat("OverallSpeed_f", Mathf.Abs(joypadInputXL * speed));
-            else
-                playerAnim.SetFloat("OverallSpeed_f", 3);
-
-        if(weaponBools[1]==true)
-        {
-            
-            playerAnim.SetInteger("WeaponType_int", 1);
-        }
+        if (Mathf.Abs(joypadInputXL * speed) != 0)
+            playerAnim.SetFloat("OverallSpeed_f", Mathf.Abs(joypadInputXL * speed));
+        else
+            playerAnim.SetFloat("OverallSpeed_f", 3);
 
     }
 
@@ -157,7 +165,7 @@ public class PlayerController : MonoBehaviour
     private void ChangeDirection()
     {
         //No need to do anything if the player is idling their analog sticks
-        if(movement.x!=0 || joypadInputXR!=0)
+        if (movement.x != 0 || joypadInputXR != 0)
         {
             //First, check if the player is currently holding a ranged weapon
             if (!hasGun)
@@ -191,42 +199,26 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    //Allows the player to do a combat roll
-    private void Roll()
-    {
-        if (Input.GetKeyDown("joystick button 0") && jumpCount>=1)
-        {
-            for (int i = 0; i < rollTimer; i++)
-            {
-                Debug.Log(i);
-                playerRb.AddForce(Vector3.right * 5000 * transform.rotation.x, ForceMode.Impulse);
-                playerAnim.SetTrigger("Roll_trig");
-                i++;
-            }
-        }
-   
-    }
-
     //Allows the player to increase their vertical velocity positively
     private void Jump()
     {
         //Jump Eins
-        if (joypadInputLT!=0 && jumpCount >= 1) 
+        if (joypadInputLT != 0 && jumpCount >= 1)
         {
             //check if LT hasn't already been pressed...
-            if(joypadInputLTInUse == false)
+            if (joypadInputLTInUse == false)
             {
-                playerRb.AddForce(Vector3.up * jumpForce * Time.deltaTime, ForceMode.Impulse);
+                velocity.y += Mathf.Sqrt(jumpForce * -3.0f * gravityModifier);
                 playerAnim.SetTrigger("Jump_trig");
                 playerAnim.SetBool("Grounded", false);
                 joypadInputLTInUse = true;
             }
-            
+
         }
 
 
         //Jump Zwei
-        if (joypadInputLT!=0 && !hasDoubleJumped)
+        if (joypadInputLT != 0 && !hasDoubleJumped)
         {
             //check if LT hasn't already been pressed...
             if (joypadInputLTInUse == false)
@@ -235,13 +227,13 @@ public class PlayerController : MonoBehaviour
                 hasDoubleJumped = true;
 
                 //You must reset the y velocity back to zero before the second jump, otherwise jump heights will be entirely inconsistent
-                playerRb.velocity = new Vector3(playerRb.velocity.x, 0f, playerRb.velocity.z);
-                playerRb.AddForce(Vector3.up * doubleJumpForce * Time.deltaTime, ForceMode.Impulse);
+                velocity.y = 0;
+                velocity.y += Mathf.Sqrt(doubleJumpForce * -3.0f * gravityModifier);
             }
         }
 
         //Reset LT to pressable?
-        if (joypadInputLT ==0)
+        if (joypadInputLT == 0)
         {
             joypadInputLTInUse = false;
         }
@@ -271,13 +263,13 @@ public class PlayerController : MonoBehaviour
         headOffset = weaponRotationOffsets[selectedWeapon, 1];
 
         //Then set literally everything else to false :)
-        for (int i=0; i<weaponBools.Length; i++)
+        for (int i = 0; i < weaponBools.Length; i++)
         {
             if (i != selectedWeapon)
             {
                 weaponBools[i] = false;
                 weaponObjects[i].SetActive(false);
-            }   
+            }
         }
     }
 
@@ -293,7 +285,7 @@ public class PlayerController : MonoBehaviour
         }
         if (other.gameObject.CompareTag("Weapon_Shotgun"))
         {
-            if(Input.GetButtonDown("Y"))
+            if (Input.GetButtonDown("Y"))
             {
                 Destroy(other.gameObject);
                 SelectWeapon(2);
@@ -313,6 +305,7 @@ public class PlayerController : MonoBehaviour
     //Check jump hitbox to see if you can do the jump
     public void OnChildTriggerEntered(Collider other, Vector3 childPosition)
     {
+        Debug.Log("bruh");
         if (other.gameObject.CompareTag("Ground"))
         {
             playerAnim.SetBool("Grounded", true);
@@ -341,11 +334,11 @@ public class PlayerController : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (!isCrouching)
-        {
-            playerRb.AddForce(Vector3.right * joypadInputXL * speed * Time.deltaTime, ForceMode.Impulse);
-        }
+        //if (!isCrouching)
+        //{
+        //    Debug.Log("shit");
+        //    playerRb.AddForce(Vector3.right * joypadInputXL * speed * Time.deltaTime, ForceMode.Acceleration);
+        //}
 
-        Jump();
     }
 }
