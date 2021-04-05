@@ -30,6 +30,7 @@ public class PlayerController : MonoBehaviour
     public float shit;
     public int jumpCount; //throwback to CORONA SDK a.k.a.  S O L A R  2 D
     public bool jumpCheck;
+    public bool ceilingCheck;
     public float rollSpeed;
     public int rollTimer;
     public bool isCrouching = false;
@@ -37,6 +38,9 @@ public class PlayerController : MonoBehaviour
 
     public Vector3 movement;
     public Vector3 velocity;
+    private float fallTimer;
+    public float jumpTimeCounter;
+    private bool isJumping;
 
     //WEAPONS - must keep track of:
     //What our current weapon is (true/false)
@@ -104,50 +108,16 @@ public class PlayerController : MonoBehaviour
         movement = new Vector3(joypadInputXL, 0.0f, 0.0f);
 
         playerAnim.SetFloat("Speed_f", Mathf.Abs(movement.x));
-        //Crouching
-        if (Input.GetKeyDown("joystick button 1") && jumpCount >= 1 && !isCrouching)
-        {
-            playerAnim.SetBool("Crouch_b", true);
-            isCrouching = true;
-        }
-        else if (Input.GetKeyDown("joystick button 1") && jumpCount >= 1 && isCrouching)
-        {
-            playerAnim.SetBool("Crouch_b", false);
-            //Store last 2 values of movement.x. If the same, change animation to idle, if not, keep running.
-            isCrouching = false;
-        }
 
         pController.Move(movement * speed * Time.deltaTime);
 
-        velocity.y += gravityModifier * Time.deltaTime;
-
-
-        jumpCheck = pController.isGrounded;
-
-        if(jumpCheck)
-        {
-            velocity.y = 0;
-            hasDoubleJumped = false;
-            playerAnim.SetBool("Grounded", true);
-            playerAnim.SetBool("Falling_b", false);
-        } else
-            pController.Move(velocity * Time.deltaTime);
-
-
-        //Jump();
-
-
-        //Play falling animation after jump or fall
-        if (pController.velocity.y < -0.1 && !jumpCheck)
-        {
-            playerAnim.SetBool("Falling_b", true);
-        }
+        Jump();
 
         //Rotate character relative to left analog movement
         ChangeDirection();
 
         if (Mathf.Abs(joypadInputXL * speed) != 0)
-            playerAnim.SetFloat("OverallSpeed_f", Mathf.Abs(joypadInputXL * speed));
+            playerAnim.SetFloat("OverallSpeed_f", Mathf.Abs(joypadInputXL * (speed/2.3f)));
         else
             playerAnim.SetFloat("OverallSpeed_f", 3);
 
@@ -160,6 +130,49 @@ public class PlayerController : MonoBehaviour
 
 
     //player methods
+
+    //Checks if the player is on the ground or not
+    private bool isGrounded()
+    {
+        RaycastHit hit;
+        Boolean onGround;
+        Physics.Raycast(pController.bounds.center, Vector3.down, out hit, pController.bounds.extents.y+0.1f);
+        Color rayColor;
+        if (hit.collider !=null && hit.collider.tag.Equals("Ground"))
+        {
+            rayColor = Color.green;
+            onGround = true;
+        }  
+        else
+        {
+            rayColor = Color.red;
+            onGround = false;
+        }
+        Debug.DrawRay(pController.bounds.center, Vector3.down * (pController.bounds.extents.y+0.1f), rayColor);
+
+        return onGround;
+    }
+
+    private bool hittingHead()
+    {
+        RaycastHit hit;
+        Boolean onCeiling;
+        Physics.Raycast(pController.bounds.center, Vector3.up, out hit, pController.bounds.extents.y + 0.5f);
+        Color rayColor;
+        if(hit.collider!=null && hit.collider.tag.Equals("Ground"))
+        {
+            rayColor = Color.green;
+            onCeiling = true;
+        }
+        else
+        {
+            rayColor = Color.red;
+            onCeiling = false;
+        }
+        Debug.DrawRay(pController.bounds.center, Vector3.up * (pController.bounds.extents.y + 0.5f), rayColor);
+
+        return onCeiling;
+    }
 
     //Gets the direction that the player should currently be facing and turns them
     private void ChangeDirection()
@@ -202,20 +215,24 @@ public class PlayerController : MonoBehaviour
     //Allows the player to increase their vertical velocity positively
     private void Jump()
     {
-        //Jump Eins
-        if (joypadInputLT != 0 && jumpCount >= 1)
+        jumpCheck = isGrounded();
+        ceilingCheck = hittingHead();
+
+        //Jump
+        if (joypadInputLT != 0 && jumpCheck)
         {
             //check if LT hasn't already been pressed...
             if (joypadInputLTInUse == false)
             {
-                velocity.y += Mathf.Sqrt(jumpForce * -3.0f * gravityModifier);
+                isJumping = true;
+                jumpCheck = false;
+                velocity.y += jumpForce;
                 playerAnim.SetTrigger("Jump_trig");
                 playerAnim.SetBool("Grounded", false);
                 joypadInputLTInUse = true;
             }
 
         }
-
 
         //Jump Zwei
         if (joypadInputLT != 0 && !hasDoubleJumped)
@@ -228,7 +245,9 @@ public class PlayerController : MonoBehaviour
 
                 //You must reset the y velocity back to zero before the second jump, otherwise jump heights will be entirely inconsistent
                 velocity.y = 0;
-                velocity.y += Mathf.Sqrt(doubleJumpForce * -3.0f * gravityModifier);
+                velocity.y += doubleJumpForce;
+                Debug.Log(velocity.y);
+                joypadInputLTInUse = true;
             }
         }
 
@@ -236,6 +255,31 @@ public class PlayerController : MonoBehaviour
         if (joypadInputLT == 0)
         {
             joypadInputLTInUse = false;
+            isJumping = false;
+        }
+        else
+            joypadInputLTInUse = true;
+
+        if (jumpCheck)
+        {
+            velocity.y = 0;
+            hasDoubleJumped = false;
+            playerAnim.SetBool("Grounded", true);
+            playerAnim.SetBool("Falling_b", false);
+            fallTimer = 0.5f;
+            jumpTimeCounter = 0.37f;
+        }
+        else
+        {
+            velocity.y += gravityModifier * Time.deltaTime;
+
+            if (ceilingCheck)
+                velocity.y = -0.1f;
+
+            pController.Move(velocity * Time.deltaTime);
+            fallTimer -= Time.deltaTime;
+            if(fallTimer<=0 || velocity.y<0)
+                playerAnim.SetBool("Falling_b", true);
         }
 
     }
@@ -326,19 +370,17 @@ public class PlayerController : MonoBehaviour
 
     private void LateUpdate()
     {
-        head.LookAt(Target.position);
-        spine.LookAt(Target.position);
-        spine.rotation = spine.rotation * Quaternion.Euler(spineOffset);
-        head.rotation = head.rotation * Quaternion.Euler(headOffset);
+        if(hasGun)
+        {
+            head.LookAt(Target.position);
+            spine.LookAt(Target.position);
+            spine.rotation = spine.rotation * Quaternion.Euler(spineOffset);
+            head.rotation = head.rotation * Quaternion.Euler(headOffset);
+        }
     }
 
     private void FixedUpdate()
     {
-        //if (!isCrouching)
-        //{
-        //    Debug.Log("shit");
-        //    playerRb.AddForce(Vector3.right * joypadInputXL * speed * Time.deltaTime, ForceMode.Acceleration);
-        //}
 
     }
 }

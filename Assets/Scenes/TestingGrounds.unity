@@ -6708,21 +6708,22 @@ MonoBehaviour:
   joypadInputYR: 0
   joypadInputXR: 0
   joypadInputLT: 0
-  jumpForce: 10
-  doubleJumpForce: 5
+  jumpForce: 7
+  doubleJumpForce: 0.75
   hasDoubleJumped: 0
   gravityModifier: -18
-  speed: 7
+  speed: 14
   shit: 0
   jumpCount: 0
-  jumpCheck: 0
+  jumpCheck: 1
   rollSpeed: 3
   rollTimer: 50
   isCrouching: 0
   hasGun: 0
   movement: {x: 0, y: 0, z: 0}
   velocity: {x: 0, y: 0, z: 0}
-  weaponBools: 00000000000000000000
+  jumpTimeCounter: 0.37
+  weaponBools: 01000000000000000000
   weaponObjects:
   - {fileID: 711445432}
   - {fileID: 432099782}
@@ -6737,8 +6738,8 @@ MonoBehaviour:
   weaponAnimationNumbers: 00000000010000000400000005000000000000000000000000000000000000000000000000000000
   doubleJumpParticle: {fileID: 579721558}
   Target: {fileID: 1442882828}
-  spineOffset: {x: 15, y: 0, z: -90}
-  headOffset: {x: 12.5, y: 0, z: -90}
+  spineOffset: {x: 10, y: 0, z: -90}
+  headOffset: {x: -7, y: 0, z: -90}
 --- !u!143 &969464389
 CharacterController:
   m_ObjectHideFlags: 0
