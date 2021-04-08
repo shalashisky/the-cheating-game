@@ -11,6 +11,8 @@ public class PlayerController : MonoBehaviour
 {
     private Animator playerAnim;
     public CharacterController pController;
+    private PlayerInput inputManager;
+    private SkinnedMeshRenderer playerRenderer;
 
 
     //Analog inputs
@@ -20,7 +22,15 @@ public class PlayerController : MonoBehaviour
     public float joypadInputXR;
 
     public float joypadInputLT;
+    public float joypadInputRT;
     private bool joypadInputLTInUse;
+    private bool joypadInputRTInUse;
+
+    //Button inputs
+    private bool jumpAlt;
+    private bool fireAlt;
+    private bool interact;
+    private bool taunt;
 
     public float jumpForce;
     public float doubleJumpForce;
@@ -35,12 +45,18 @@ public class PlayerController : MonoBehaviour
     public int rollTimer;
     public bool isCrouching = false;
     public bool hasGun;
+    public bool invunerable;
 
     public Vector3 movement;
     public Vector3 velocity;
     private float fallTimer;
     public float jumpTimeCounter;
     private bool isJumping;
+
+    public float health;
+    private float healthModifier;
+    public float money;
+    public float crowdInfluence;
 
     //WEAPONS - must keep track of:
     //What our current weapon is (true/false)
@@ -53,9 +69,11 @@ public class PlayerController : MonoBehaviour
     //1: flaregun
     //2: shotgun
     //3: sniper
+    //4: baseball bat
     public bool[] weaponBools = new bool[10];
     public GameObject[] weaponObjects = new GameObject[10];
     public int[] weaponAnimationNumbers = new int[10];
+    public int currentWeapon;
     public Vector3[,] weaponRotationOffsets;
 
     public ParticleSystem doubleJumpParticle;
@@ -63,9 +81,14 @@ public class PlayerController : MonoBehaviour
     public Transform Target;
     public Vector3 spineOffset;
     public Vector3 headOffset;
+    public Vector3 lShoulderOffset;
+    public Vector3 rShoulderOffset;
 
     private Transform spine;
     private Transform head;
+    private Transform leftShoulder;
+    private Transform rightShoulder;
+    private Transform hips;
 
     void Awake()
     {
@@ -75,52 +98,87 @@ public class PlayerController : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        playerRenderer = GetComponentInChildren<SkinnedMeshRenderer>();
         playerAnim = GetComponent<Animator>();
         spine = playerAnim.GetBoneTransform(HumanBodyBones.Spine);
         head = playerAnim.GetBoneTransform(HumanBodyBones.Head);
+        leftShoulder = playerAnim.GetBoneTransform(HumanBodyBones.LeftShoulder);
+        rightShoulder = playerAnim.GetBoneTransform(HumanBodyBones.RightShoulder);
+        hips = transform.Find("Hips_jnt");
+        inputManager = GetComponent<PlayerInput>();
 
+        health = 4;
+        invunerable = false;
         //Initialize our rotation offsets for spine/head based on current weapon
-        weaponRotationOffsets = new Vector3[10, 2] {
-        {new Vector3(10,0,-90), new Vector3(-7,0,-90) }, //fists
-        {new Vector3(15,0,-90), new Vector3(-15,0,-90) }, //pistol
-        {new Vector3(15,50,-90), new Vector3(20,-45,-90) }, //shotgun
-        {new Vector3(20,52,-90), new Vector3(0,0,-90) }, //rifle
-        {new Vector3(0,0,0), new Vector3(0,0,0) },
-        {new Vector3(0,0,0), new Vector3(0,0,0) },
-        {new Vector3(0,0,0), new Vector3(0,0,0) },
-        {new Vector3(0,0,0), new Vector3(0,0,0) },
-        {new Vector3(0,0,0), new Vector3(0,0,0) },
-        {new Vector3(0,0,0), new Vector3(0,0,0) },
+        weaponRotationOffsets = new Vector3[10, 4] {
+        {new Vector3(10,0,-90), new Vector3(-7,0,-90), new Vector3(0,0,0), new Vector3(0,0,0) }, //fists
+        {new Vector3(15,0,-90), new Vector3(-5,90,-90), new Vector3(0,0,0), new Vector3(0,0,0) }, //pistol
+        {new Vector3(20,55,-90), new Vector3(20,45,-90), new Vector3(0,0,0), new Vector3(0,0,0) }, //shotgun
+        {new Vector3(20,55,-90), new Vector3(15,85,-90), new Vector3(0,0,0), new Vector3(0,0,0) }, //rifle
+        {new Vector3(0,0,0), new Vector3(0,10,0), new Vector3(-15,25,-9), new Vector3(0,0,0) }, //baseball bat
+        {new Vector3(0,0,0), new Vector3(0,0,0), new Vector3(0,0,0), new Vector3(0,0,0) },
+        {new Vector3(0,0,0), new Vector3(0,0,0), new Vector3(0,0,0), new Vector3(0,0,0) },
+        {new Vector3(0,0,0), new Vector3(0,0,0), new Vector3(0,0,0), new Vector3(0,0,0) },
+        {new Vector3(0,0,0), new Vector3(0,0,0), new Vector3(0,0,0), new Vector3(0,0,0) },
+        {new Vector3(0,0,0), new Vector3(0,0,0), new Vector3(0,0,0), new Vector3(0,0,0) },
         };
 
-        SelectWeapon(0);
+        setRigidbodyState(true);
+        setColliderState(false);
+        setCharacterControllerState(true);
+
+        SelectWeapon(4);
     }
 
     // Update is called once per frame
     void Update()
     {
-        joypadInputXL = Input.GetAxis("MoveHorizontal");
-        joypadInputYL = Input.GetAxis("MoveVertical");
-        joypadInputYR = Input.GetAxis("MoveVerticalX");
-        joypadInputXR = Input.GetAxis("MoveHorizontalX");
-        joypadInputLT = Input.GetAxisRaw("LT");
+        
 
-        movement = new Vector3(joypadInputXL, 0.0f, 0.0f);
+        if (health > 0)
+        {
+            //No going out of bounds. Sorry :/
+            transform.position = new Vector3(transform.position.x, transform.position.y, 0);
 
-        playerAnim.SetFloat("Speed_f", Mathf.Abs(movement.x));
+            joypadInputXL = Input.GetAxis(inputManager.leftAnalogX);
+            joypadInputYL = Input.GetAxis(inputManager.leftAnalogY);
+            joypadInputYR = Input.GetAxis(inputManager.rightAnalogY);
+            joypadInputXR = Input.GetAxis(inputManager.rightAnalogX);
+            joypadInputLT = Input.GetAxisRaw(inputManager.jump);
+            joypadInputRT = Input.GetAxisRaw(inputManager.fire);
+            jumpAlt = Input.GetButtonDown(inputManager.jumpAlt);
+            fireAlt = Input.GetButtonDown(inputManager.fireAlt);
+            interact = Input.GetButtonDown(inputManager.interact);
+            taunt = Input.GetButtonDown(inputManager.taunt);
 
-        pController.Move(movement * speed * Time.deltaTime);
+            movement = new Vector3(joypadInputXL, 0.0f, 0.0f);
 
-        Jump();
+            playerAnim.SetFloat("Speed_f", Mathf.Abs(movement.x));
 
-        //Rotate character relative to left analog movement
-        ChangeDirection();
+            pController.Move(movement * speed * Time.deltaTime);
 
-        if (Mathf.Abs(joypadInputXL * speed) != 0)
-            playerAnim.SetFloat("OverallSpeed_f", Mathf.Abs(joypadInputXL * (speed/2.3f)));
+            Jump();
+            Attack();
+
+            //Rotate character relative to left analog movement
+            ChangeDirection();
+
+            if (Mathf.Abs(joypadInputXL * speed) != 0)
+                playerAnim.SetFloat("OverallSpeed_f", Mathf.Abs(joypadInputXL * (speed / 2.3f)));
+            else
+                playerAnim.SetFloat("OverallSpeed_f", 3);
+        }
         else
-            playerAnim.SetFloat("OverallSpeed_f", 3);
+        {
+            KnockDown();
+            hips.position = new Vector3(hips.transform.position.x, hips.transform.position.y, 0);
+        }
 
+        if (Input.GetKeyDown("space"))
+        {
+            health = 4;
+            GetUp();
+        }
     }
 
 
@@ -219,7 +277,7 @@ public class PlayerController : MonoBehaviour
         ceilingCheck = hittingHead();
 
         //Jump
-        if (joypadInputLT != 0 && jumpCheck)
+        if ((joypadInputLT != 0 || jumpAlt) && jumpCheck)
         {
             //check if LT hasn't already been pressed...
             if (joypadInputLTInUse == false)
@@ -235,7 +293,7 @@ public class PlayerController : MonoBehaviour
         }
 
         //Jump Zwei
-        if (joypadInputLT != 0 && !hasDoubleJumped)
+        if ((joypadInputLT != 0 || jumpAlt) && !hasDoubleJumped)
         {
             //check if LT hasn't already been pressed...
             if (joypadInputLTInUse == false)
@@ -244,7 +302,6 @@ public class PlayerController : MonoBehaviour
                 hasDoubleJumped = true;
 
                 //You must reset the y velocity back to zero before the second jump, otherwise jump heights will be entirely inconsistent
-                velocity.y = 0;
                 velocity.y += doubleJumpForce;
                 Debug.Log(velocity.y);
                 joypadInputLTInUse = true;
@@ -260,6 +317,7 @@ public class PlayerController : MonoBehaviour
         else
             joypadInputLTInUse = true;
 
+
         if (jumpCheck)
         {
             velocity.y = 0;
@@ -271,15 +329,114 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
+            //"You can't fight gravity" -Dutch van der Linde (1911)
             velocity.y += gravityModifier * Time.deltaTime;
 
             if (ceilingCheck)
+            {
                 velocity.y = -0.1f;
+                fallTimer = 0;
+            }
+            else
+                fallTimer -= Time.deltaTime;
 
             pController.Move(velocity * Time.deltaTime);
-            fallTimer -= Time.deltaTime;
+
             if(fallTimer<=0 || velocity.y<0)
                 playerAnim.SetBool("Falling_b", true);
+        }
+
+    }
+
+    private void Attack()
+    {
+        if ((joypadInputRT != 0 || fireAlt))
+        {
+            if (currentWeapon==4)
+            {
+                if (!GetComponentInChildren<BaseballBat>().isAttacking)
+                {
+                    GetComponentInChildren<BaseballBat>().Fire();
+                    playerAnim.SetTrigger("Shoot_trig");
+                }
+                    
+            }
+        }
+    }
+
+    public void TakeDamage(int damage)
+    {
+        invunerable = true;
+        health -= damage;
+        if (health > 0)
+        {
+            playerRenderer.material.SetColor("_Color", Color.red);
+            Invoke("EndDamage", 1f);
+        }
+        else
+            KnockDown();
+    }
+
+    public void EndDamage()
+    {
+        invunerable = false;
+        playerRenderer.material.SetColor("_Color", Color.white);
+    }
+
+    //Knocks player into a ragdoll state
+    public void KnockDown()
+    {
+        //SelectWeapon(0);
+        GetComponent<Outline>().enabled = false;
+        playerAnim.enabled = false;
+        setRigidbodyState(false);
+        setColliderState(true);
+        setCharacterControllerState(false);
+
+    }
+
+    //Allows the player to get up from a ragdoll state
+    public void GetUp()
+    {
+        GetComponent<Outline>().enabled = true;
+        playerAnim.enabled = true;
+        playerAnim.SetTrigger("Getup_trig");
+        transform.position = hips.position;
+        setRigidbodyState(true);
+        setColliderState(false);
+        setCharacterControllerState(true);
+
+    }
+
+    public void setRigidbodyState(bool state)
+    {
+        Rigidbody[] rigidbodies = GetComponentsInChildren<Rigidbody>();
+
+        foreach(Rigidbody rigidbody in rigidbodies)
+        {
+            rigidbody.isKinematic = state;
+        }
+
+    }
+
+    public void setColliderState(bool state)
+    {
+        Collider[] colliders = GetComponentsInChildren<Collider>();
+
+        foreach (Collider collider in colliders)
+        {
+            collider.enabled = state;
+        }
+
+    }
+
+    public void setCharacterControllerState(bool state)
+    {
+        CharacterController[] cControllers = GetComponentsInChildren<CharacterController>();
+
+        foreach (CharacterController cController in cControllers)
+        {
+            cController.enabled = state;
         }
 
     }
@@ -294,6 +451,8 @@ public class PlayerController : MonoBehaviour
         weaponBools[selectedWeapon] = true;
         weaponObjects[selectedWeapon].SetActive(true);
 
+        currentWeapon = selectedWeapon;
+
         if (weaponObjects[selectedWeapon].tag == "Gun")
             hasGun = true;
         else
@@ -305,6 +464,8 @@ public class PlayerController : MonoBehaviour
         //Change our offsets
         spineOffset = weaponRotationOffsets[selectedWeapon, 0];
         headOffset = weaponRotationOffsets[selectedWeapon, 1];
+        lShoulderOffset = weaponRotationOffsets[selectedWeapon, 2];
+        rShoulderOffset = weaponRotationOffsets[selectedWeapon, 3];
 
         //Then set literally everything else to false :)
         for (int i = 0; i < weaponBools.Length; i++)
@@ -321,7 +482,7 @@ public class PlayerController : MonoBehaviour
     {
         if (other.gameObject.CompareTag("Weapon_Flaregun"))
         {
-            if (Input.GetButtonDown("Y"))
+            if (interact)
             {
                 Destroy(other.gameObject);
                 SelectWeapon(1);
@@ -329,7 +490,7 @@ public class PlayerController : MonoBehaviour
         }
         if (other.gameObject.CompareTag("Weapon_Shotgun"))
         {
-            if (Input.GetButtonDown("Y"))
+            if (interact)
             {
                 Destroy(other.gameObject);
                 SelectWeapon(2);
@@ -337,7 +498,7 @@ public class PlayerController : MonoBehaviour
         }
         if (other.gameObject.CompareTag("Weapon_Rifle"))
         {
-            if (Input.GetButtonDown("Y"))
+            if (interact)
             {
                 Destroy(other.gameObject);
                 SelectWeapon(3);
@@ -346,36 +507,24 @@ public class PlayerController : MonoBehaviour
 
     }
 
-    //Check jump hitbox to see if you can do the jump
-    public void OnChildTriggerEntered(Collider other, Vector3 childPosition)
-    {
-        Debug.Log("bruh");
-        if (other.gameObject.CompareTag("Ground"))
-        {
-            playerAnim.SetBool("Grounded", true);
-            playerAnim.SetBool("Falling_b", false);
-            jumpCount++;
-            hasDoubleJumped = false;
-        }
-    }
-
-    //Check jump hitbox to see if you cannot do the jump
-    public void OnChildTriggerExited(Collider other, Vector3 childPosition)
-    {
-        if (other.gameObject.CompareTag("Ground"))
-        {
-            jumpCount--;
-        }
-    }
-
     private void LateUpdate()
     {
-        if(hasGun)
+        if (health>0)
         {
-            head.LookAt(Target.position);
-            spine.LookAt(Target.position);
-            spine.rotation = spine.rotation * Quaternion.Euler(spineOffset);
-            head.rotation = head.rotation * Quaternion.Euler(headOffset);
+            if (hasGun)
+            {
+                head.LookAt(Target.position);
+                spine.LookAt(Target.position);
+                spine.rotation = spine.rotation * Quaternion.Euler(spineOffset);
+                head.rotation = head.rotation * Quaternion.Euler(headOffset);
+            }
+            else
+            {
+                spine.rotation = spine.rotation * Quaternion.Euler(spineOffset);
+                head.rotation = head.rotation * Quaternion.Euler(headOffset);
+                leftShoulder.rotation = leftShoulder.rotation * Quaternion.Euler(lShoulderOffset);
+                rightShoulder.rotation = rightShoulder.rotation * Quaternion.Euler(rShoulderOffset);
+            }
         }
     }
 
