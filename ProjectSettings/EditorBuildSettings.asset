@@ -9,6 +9,6 @@ EditorBuildSettings:
     path: Assets/Scenes/Key_Challenge.unity
     guid: c330f06ece3fc744eb124fe8908c10fd
   - enabled: 1
-    path: Assets/Scenes/Round Stages/Orange_Block/Orange_Block.unity
+    path: Assets/Scenes/Round Stages/Orange_Block/HudTest.unity
     guid: d44467f7c149e06488606015185f2f9a
   m_configObjects: {}
