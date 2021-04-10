@@ -1,0 +1,13 @@
+{
+
+    "lAnalogX": "MoveHorizontal2",
+    "lAnalogY": "MoveVertical2",
+    "rAnalogX": "AimHorizontal2",
+    "rAnalogY": "AimVertical2",
+    "jump": "Jump2",
+    "jumpAlt": "JumpAlt2",
+    "fire": "Fire2",
+    "fireAlt": "FireAlt2",
+    "interact": "Interact2",
+    "taunt": "Taunt2"
+}

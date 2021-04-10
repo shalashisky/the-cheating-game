@@ -1,8 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-using UnityStandardAssets.Cameras;
-using UnityStandardAssets.Effects;
+﻿using UnityEngine;
 
 public class PlayerControllerTwinstick : MonoBehaviour
 {
@@ -23,6 +19,8 @@ public class PlayerControllerTwinstick : MonoBehaviour
     public bool isAiming;
     public bool hasGun;
     public int currentWeapon;
+
+    public bool isDead;
 
     public GameObject aimPoint;
     public Transform Target;
@@ -82,112 +80,131 @@ public class PlayerControllerTwinstick : MonoBehaviour
         {new Vector3(20,0,-90), new Vector3(20,90,-90), new Vector3(0f,0f,0f), new Vector3(0f,0f,0f) }, //idle position (when you're not aiming, only 0 & 1)
         };
 
+        setRigidbodyState(true);
+        setColliderState(false);
+        setCharacterControllerState(true);
+
+        isDead = false;
+
         SelectWeapon(0);
     }
 
     // Update is called once per frame
     void Update()
     {
-        joypadInputXL = (Input.GetAxis("MoveHorizontal"));
-        joypadInputYL = (Input.GetAxis("MoveVertical"));
-        joypadInputYR = (Input.GetAxis("MoveVerticalX"));
-        joypadInputXR = (Input.GetAxis("MoveHorizontalX"));
-
-        movement = new Vector3(joypadInputXL, 0.0f, -joypadInputYL);
-        aimMovement = new Vector3(joypadInputXR, 0.0f, -joypadInputYR);
-
-        if (movement.x!=0 || movement.z!=0)
+        if (!isDead)
         {
-            playerAnim.SetFloat("Speed_f", 1);
 
-        }
-        else
-        {
-            playerAnim.SetFloat("Speed_f", 0);
-        }
+            joypadInputXL = (Input.GetAxis("MoveHorizontal1"));
+            joypadInputYL = (Input.GetAxis("MoveVertical1"));
+            joypadInputYR = (Input.GetAxis("AimVertical1"));
+            joypadInputXR = (Input.GetAxis("AimHorizontal1"));
 
+            movement = new Vector3(joypadInputXL, 0.0f, joypadInputYL);
+            aimMovement = new Vector3(joypadInputXR, 0.0f, -joypadInputYR);
 
-
-        pController.Move(movement * speed * Time.deltaTime);
-
-        if (aimMovement.x!=0 || aimMovement.z!=0)
-        {
-            isAiming = true;
-            lastMovement = aimMovement;
-            transform.rotation = Quaternion.LookRotation(aimMovement);
-        }
-        else
-        {
-            isAiming = false;
-            if(movement.x!=0 || movement.z!=0)
+            if (movement.x != 0 || movement.z != 0)
             {
-                lastMovement = movement;
-                transform.rotation = Quaternion.LookRotation(movement);
+                playerAnim.SetFloat("Speed_f", 1);
+
             }
             else
-                transform.rotation = Quaternion.LookRotation(lastMovement);
+            {
+                playerAnim.SetFloat("Speed_f", 0);
+            }
+
+
+
+            pController.Move(movement * speed * Time.deltaTime);
+
+            if (aimMovement.x != 0 || aimMovement.z != 0)
+            {
+                isAiming = true;
+                lastMovement = aimMovement;
+                transform.rotation = Quaternion.LookRotation(aimMovement);
+            }
+            else
+            {
+                isAiming = false;
+                if (movement.x != 0 || movement.z != 0)
+                {
+                    lastMovement = movement;
+                    transform.rotation = Quaternion.LookRotation(movement);
+                }
+                else
+                    transform.rotation = Quaternion.LookRotation(lastMovement);
+
+            }
+
+
+            if (isAiming && hasGun)
+            {
+                fireWeapon();
+                playerAnim.SetBool("Shoot_b", true);
+                playerAnim.SetBool("FullAuto_b", true);
+            }
+            else
+            {
+                playerAnim.SetBool("Shoot_b", false);
+                playerAnim.SetBool("FullAuto_b", false);
+            }
+
+
+
+
+
+
+            //DEBUGGING - REMOVE LATER!
+            if (Input.GetKeyDown(KeyCode.Alpha0))
+                SelectWeapon(0);
+            else if (Input.GetKeyDown(KeyCode.Alpha1))
+                SelectWeapon(1);
+            else if (Input.GetKeyDown(KeyCode.Alpha2))
+                SelectWeapon(2);
+            else if (Input.GetKeyDown(KeyCode.Alpha3))
+                SelectWeapon(3);
+            else if (Input.GetKeyDown(KeyCode.Alpha4))
+                SelectWeapon(4);
+            else if (Input.GetKeyDown(KeyCode.Alpha5))
+                SelectWeapon(5);
+            else if (Input.GetKeyDown(KeyCode.Alpha6))
+                SelectWeapon(6);
+            else if (Input.GetKeyDown(KeyCode.Alpha7))
+                SelectWeapon(7);
+            else if (Input.GetKeyDown(KeyCode.Alpha8))
+                SelectWeapon(8);
+            else if (Input.GetKeyDown(KeyCode.Alpha9))
+                SelectWeapon(9);
 
         }
 
-
-        if (isAiming && hasGun)
+        if (transform.position.y<0)
         {
-            fireWeapon();
-            playerAnim.SetBool("Shoot_b", true);
-            playerAnim.SetBool("FullAuto_b", true);
+            isDead = true;
+            KnockDown();
         }
-        else
-        {
-            playerAnim.SetBool("Shoot_b", false);
-            playerAnim.SetBool("FullAuto_b", false);
-        }
-
-
-
-
-
-
-        //DEBUGGING - REMOVE LATER!
-        if (Input.GetKeyDown(KeyCode.Alpha0))
-            SelectWeapon(0);
-        else if (Input.GetKeyDown(KeyCode.Alpha1))
-            SelectWeapon(1);
-        else if (Input.GetKeyDown(KeyCode.Alpha2))
-            SelectWeapon(2);
-        else if (Input.GetKeyDown(KeyCode.Alpha3))
-            SelectWeapon(3);
-        else if (Input.GetKeyDown(KeyCode.Alpha4))
-            SelectWeapon(4);
-        else if (Input.GetKeyDown(KeyCode.Alpha5))
-            SelectWeapon(5);
-        else if (Input.GetKeyDown(KeyCode.Alpha6))
-            SelectWeapon(6);
-        else if (Input.GetKeyDown(KeyCode.Alpha7))
-            SelectWeapon(7);
-        else if (Input.GetKeyDown(KeyCode.Alpha8))
-            SelectWeapon(8);
-        else if (Input.GetKeyDown(KeyCode.Alpha9))
-            SelectWeapon(9);
     }
     private void LateUpdate()
     {
-
-        head.LookAt(Target.position);
-        spine.LookAt(Target.position);
-
-        if (isAiming || !hasGun)
+        if (!isDead)
         {
-            spine.rotation = spine.rotation * Quaternion.Euler(spineOffset);
-            head.rotation = head.rotation * Quaternion.Euler(headOffset);
-        }
-        else
-        {
-            spine.rotation = spine.rotation * Quaternion.Euler(weaponRotationOffsets[9, 0]);
-            head.rotation = head.rotation * Quaternion.Euler(weaponRotationOffsets[9, 1]);
-            leftShoulder.rotation = leftShoulder.rotation * Quaternion.Euler(lShoulderOffset);
-            rightShoulder.rotation = rightShoulder.rotation * Quaternion.Euler(rShoulderOffset);
-        }
+            head.LookAt(Target.position);
+            spine.LookAt(Target.position);
 
+            if (isAiming || !hasGun)
+            {
+                spine.rotation = spine.rotation * Quaternion.Euler(spineOffset);
+                head.rotation = head.rotation * Quaternion.Euler(headOffset);
+            }
+            else
+            {
+                spine.rotation = spine.rotation * Quaternion.Euler(weaponRotationOffsets[9, 0]);
+                head.rotation = head.rotation * Quaternion.Euler(weaponRotationOffsets[9, 1]);
+                leftShoulder.rotation = leftShoulder.rotation * Quaternion.Euler(lShoulderOffset);
+                rightShoulder.rotation = rightShoulder.rotation * Quaternion.Euler(rShoulderOffset);
+            }
+
+        }
 
     }
 
@@ -236,6 +253,61 @@ public class PlayerControllerTwinstick : MonoBehaviour
         Vector3 shootDir = firingPoint.eulerAngles;
 
         bullet.GetComponent<bullet>().Setup(shootDir);
+
+    }
+
+    //Knocks player into a ragdoll state
+    public void KnockDown()
+    {
+        //SelectWeapon(0);
+        playerAnim.enabled = false;
+        setRigidbodyState(false);
+        setColliderState(true);
+        setCharacterControllerState(false);
+
+    }
+
+    //Allows the player to get up from a ragdoll state
+    public void GetUp()
+    {
+        playerAnim.enabled = true;
+        playerAnim.SetTrigger("Getup_trig");
+        setRigidbodyState(true);
+        setColliderState(false);
+        setCharacterControllerState(true);
+
+    }
+
+    public void setRigidbodyState(bool state)
+    {
+        Rigidbody[] rigidbodies = GetComponentsInChildren<Rigidbody>();
+
+        foreach (Rigidbody rigidbody in rigidbodies)
+        {
+            rigidbody.isKinematic = state;
+        }
+
+    }
+
+    public void setColliderState(bool state)
+    {
+        Collider[] colliders = GetComponentsInChildren<Collider>();
+
+        foreach (Collider collider in colliders)
+        {
+            collider.enabled = state;
+        }
+
+    }
+
+    public void setCharacterControllerState(bool state)
+    {
+        CharacterController[] cControllers = GetComponentsInChildren<CharacterController>();
+
+        foreach (CharacterController cController in cControllers)
+        {
+            cController.enabled = state;
+        }
 
     }
 }

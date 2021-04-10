@@ -17,7 +17,7 @@ public class BaseballBat : MonoBehaviour
         hitBox = GetComponent<BoxCollider>();
         hitBox.enabled = false;
         cooldown = 0.75f;
-        damage = 2;
+        damage = 1;
         isAttacking = false;
     }
 
@@ -26,6 +26,7 @@ public class BaseballBat : MonoBehaviour
 
         if (actualCooldown<=0)
         {
+            transform.root.gameObject.GetComponent<PlayerController>().isAttacking = false;
             isAttacking = false;
             hitBox.enabled = false;
         }
@@ -38,6 +39,7 @@ public class BaseballBat : MonoBehaviour
 
     public void Fire()
     {
+        transform.root.gameObject.GetComponent<PlayerController>().isAttacking = true;
         isAttacking = true;
         actualCooldown = cooldown;
         hitBox.enabled = true;
@@ -45,10 +47,10 @@ public class BaseballBat : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.gameObject.CompareTag("Player") && (transform.root.gameObject != other.gameObject))
+        if (other.gameObject.CompareTag("Player_hurtbox") && (transform.root.gameObject != other.transform.root.gameObject))
         {
-            if (!other.gameObject.GetComponent<PlayerController>().invunerable)
-                other.gameObject.GetComponent<PlayerController>().TakeDamage(damage);
+            if (!other.transform.root.gameObject.GetComponent<PlayerController>().invunerable)
+                other.transform.root.gameObject.GetComponent<PlayerController>().TakeDamage(damage,transform.root.gameObject.transform.rotation.y,5,true);
         }
     }
 }

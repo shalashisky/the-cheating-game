@@ -1,0 +1,16 @@
+{
+    "ControllerInput": [
+        {
+                    "lAnalogX": "MoveHorizontal3",
+                    "lAnalogY": "MoveVertical3",
+                    "rAnalogX": "AimHorionztal3",
+                    "rAnalogY": "AimVertical3",
+                    "jump": "Jump3",
+                    "jumpAlt": "JumpAlt3",
+                    "fire": "Fire3",
+                    "fireAlt": "FireAlt3",
+                    "interact": "Interact3",
+                    "taunt": "Taunt3"
+        }
+    ]
+}

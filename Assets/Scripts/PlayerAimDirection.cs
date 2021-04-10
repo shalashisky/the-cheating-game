@@ -18,7 +18,7 @@ public class PlayerAimDirection : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        joypadInputY2 = Input.GetAxis(inputManager.rightAnalogY);
+        joypadInputY2 = Input.GetAxis(inputManager.controller.rAnalogY);
         transform.localEulerAngles = new Vector3(joypadInputY2 * 45, 0, 0);
     }
 }
