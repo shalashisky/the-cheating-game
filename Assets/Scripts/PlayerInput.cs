@@ -3,31 +3,40 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System.IO;
+using SimpleJSON;
 
 public class PlayerInput : MonoBehaviour
 {
     public int playerNumber;
-    private string inputPath;
+    public TextAsset[] inputPath;
 
-    public string leftAnalogX;
-    public string leftAnalogY;
-    public string rightAnalogX;
-    public string rightAnalogY;
-    public string jump;
-    public string jumpAlt;
-    public string fire;
-    public string fireAlt;
-    public string interact;
-    public string taunt;
+    [Serializable]
+    public class ControllerInput
+    {
+        public string lAnalogX;
+        public string lAnalogY;
+        public string rAnalogX;
+        public string rAnalogY;
+        public string jump;
+        public string jumpAlt;
+        public string fire;
+        public string fireAlt;
+        public string interact;
+        public string taunt;
+    }
+
+    [SerializeField] 
+    public ControllerInput controller = new ControllerInput();
 
     private void Start()
     {
-        inputPath = "Assets/json files/input.json";
-        SelectPlayer(playerNumber);
+        GetComponent<PlayerController>().playerNumber = playerNumber;
+        Debug.Log(playerNumber);
+        SelectPlayerInput(playerNumber);
     }
 
-    private void SelectPlayer(int playerNum)
+    private void SelectPlayerInput(int playerNum)
     {
-        
+        controller = JsonUtility.FromJson<ControllerInput>(inputPath[playerNumber-1].text);
     }
 }

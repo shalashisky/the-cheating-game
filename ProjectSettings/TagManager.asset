@@ -11,6 +11,7 @@ TagManager:
   - Weapon_Flaregun
   - Weapon_Rifle
   - LookPosition
+  - Player_hurtbox
   layers:
   - Default
   - TransparentFX

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Numerics;
 using TMPro;
 using UnityEngine;
@@ -12,8 +13,8 @@ public class PlayerController : MonoBehaviour
     private Animator playerAnim;
     public CharacterController pController;
     private PlayerInput inputManager;
+    private HudManager hudManager;
     private SkinnedMeshRenderer playerRenderer;
-
 
     //Analog inputs
     public float joypadInputXL;
@@ -46,17 +47,21 @@ public class PlayerController : MonoBehaviour
     public bool isCrouching = false;
     public bool hasGun;
     public bool invunerable;
+    public int playerNumber;
 
     public Vector3 movement;
     public Vector3 velocity;
+    public Vector3 impact = Vector3.zero;
     private float fallTimer;
     public float jumpTimeCounter;
     private bool isJumping;
+    private bool isKnockedOver;
+    public bool isAttacking;
 
-    public float health;
+    public int health;
     private float healthModifier;
-    public float money;
-    public float crowdInfluence;
+    public int money;
+    public int crowdInfluence;
 
     //WEAPONS - must keep track of:
     //What our current weapon is (true/false)
@@ -105,10 +110,14 @@ public class PlayerController : MonoBehaviour
         leftShoulder = playerAnim.GetBoneTransform(HumanBodyBones.LeftShoulder);
         rightShoulder = playerAnim.GetBoneTransform(HumanBodyBones.RightShoulder);
         hips = transform.Find("Hips_jnt");
+
+
         inputManager = GetComponent<PlayerInput>();
+        InitializePlayer();
 
         health = 4;
         invunerable = false;
+        isAttacking = false;
         //Initialize our rotation offsets for spine/head based on current weapon
         weaponRotationOffsets = new Vector3[10, 4] {
         {new Vector3(10,0,-90), new Vector3(-7,0,-90), new Vector3(0,0,0), new Vector3(0,0,0) }, //fists
@@ -123,8 +132,10 @@ public class PlayerController : MonoBehaviour
         {new Vector3(0,0,0), new Vector3(0,0,0), new Vector3(0,0,0), new Vector3(0,0,0) },
         };
 
+
+
         setRigidbodyState(true);
-        setColliderState(false);
+        setColliderState(true);
         setCharacterControllerState(true);
 
         SelectWeapon(4);
@@ -135,21 +146,21 @@ public class PlayerController : MonoBehaviour
     {
         
 
-        if (health > 0)
+        if (health > 0 && !isKnockedOver)
         {
             //No going out of bounds. Sorry :/
             transform.position = new Vector3(transform.position.x, transform.position.y, 0);
 
-            joypadInputXL = Input.GetAxis(inputManager.leftAnalogX);
-            joypadInputYL = Input.GetAxis(inputManager.leftAnalogY);
-            joypadInputYR = Input.GetAxis(inputManager.rightAnalogY);
-            joypadInputXR = Input.GetAxis(inputManager.rightAnalogX);
-            joypadInputLT = Input.GetAxisRaw(inputManager.jump);
-            joypadInputRT = Input.GetAxisRaw(inputManager.fire);
-            jumpAlt = Input.GetButtonDown(inputManager.jumpAlt);
-            fireAlt = Input.GetButtonDown(inputManager.fireAlt);
-            interact = Input.GetButtonDown(inputManager.interact);
-            taunt = Input.GetButtonDown(inputManager.taunt);
+            joypadInputXL = Input.GetAxis(inputManager.controller.lAnalogX);
+            joypadInputYL = Input.GetAxis(inputManager.controller.lAnalogY);
+            joypadInputYR = Input.GetAxis(inputManager.controller.rAnalogY);
+            joypadInputXR = Input.GetAxis(inputManager.controller.rAnalogX);
+            joypadInputLT = Input.GetAxisRaw(inputManager.controller.jump);
+            joypadInputRT = Input.GetAxisRaw(inputManager.controller.fire);
+            jumpAlt = Input.GetButtonDown(inputManager.controller.jumpAlt);
+            fireAlt = Input.GetButtonDown(inputManager.controller.fireAlt);
+            interact = Input.GetButtonDown(inputManager.controller.interact);
+            taunt = Input.GetButtonDown(inputManager.controller.taunt);
 
             movement = new Vector3(joypadInputXL, 0.0f, 0.0f);
 
@@ -167,17 +178,36 @@ public class PlayerController : MonoBehaviour
                 playerAnim.SetFloat("OverallSpeed_f", Mathf.Abs(joypadInputXL * (speed / 2.3f)));
             else
                 playerAnim.SetFloat("OverallSpeed_f", 3);
+
+            if (impact.magnitude > 0.2) 
+                pController.Move(impact * Time.deltaTime);
+
+            impact = Vector3.Lerp(impact, Vector3.zero, 5 * Time.deltaTime);
         }
         else
         {
-            KnockDown();
             hips.position = new Vector3(hips.transform.position.x, hips.transform.position.y, 0);
         }
+    }
 
-        if (Input.GetKeyDown("space"))
+    private void LateUpdate()
+    {
+        if (health > 0 && !isKnockedOver)
         {
-            health = 4;
-            GetUp();
+            if (hasGun)
+            {
+                head.LookAt(Target.position);
+                spine.LookAt(Target.position);
+                spine.rotation = spine.rotation * Quaternion.Euler(spineOffset);
+                head.rotation = head.rotation * Quaternion.Euler(headOffset);
+            }
+            else
+            {
+                spine.rotation = spine.rotation * Quaternion.Euler(spineOffset);
+                head.rotation = head.rotation * Quaternion.Euler(headOffset);
+                leftShoulder.rotation = leftShoulder.rotation * Quaternion.Euler(lShoulderOffset);
+                rightShoulder.rotation = rightShoulder.rotation * Quaternion.Euler(rShoulderOffset);
+            }
         }
     }
 
@@ -196,7 +226,7 @@ public class PlayerController : MonoBehaviour
         Boolean onGround;
         Physics.Raycast(pController.bounds.center, Vector3.down, out hit, pController.bounds.extents.y+0.1f);
         Color rayColor;
-        if (hit.collider !=null && hit.collider.tag.Equals("Ground"))
+        if (hit.collider !=null && (hit.collider.tag.Equals("Ground") || hit.collider.tag.Equals("Player_hurtbox")))
         {
             rayColor = Color.green;
             onGround = true;
@@ -241,7 +271,7 @@ public class PlayerController : MonoBehaviour
             //First, check if the player is currently holding a ranged weapon
             if (!hasGun)
             {
-                if (movement.x != 0) //Only change direction when left analog input is NOT zero.
+                if (movement.x != 0 && !isAttacking) //Only change direction when left analog input is NOT zero.
                 {
                     transform.rotation = Quaternion.LookRotation(movement); //Player's direction is based on:                               LEFT ANALOG HORIZONTAL
                     playerAnim.SetBool("RunningBack_b", false);
@@ -334,7 +364,7 @@ public class PlayerController : MonoBehaviour
 
             if (ceilingCheck)
             {
-                velocity.y = -0.1f;
+                velocity.y = -1f;
                 fallTimer = 0;
             }
             else
@@ -354,7 +384,7 @@ public class PlayerController : MonoBehaviour
         {
             if (currentWeapon==4)
             {
-                if (!GetComponentInChildren<BaseballBat>().isAttacking)
+                if (!isAttacking)
                 {
                     GetComponentInChildren<BaseballBat>().Fire();
                     playerAnim.SetTrigger("Shoot_trig");
@@ -364,17 +394,38 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    public void TakeDamage(int damage)
+    public void TakeDamage(int damage, float direction, float force, bool knockOver)
     {
         invunerable = true;
         health -= damage;
-        if (health > 0)
+        hudManager.updateHealth(health);
+
+        impact += new Vector3(direction, 0f, 0f).normalized * force;
+
+        if (knockOver)
         {
-            playerRenderer.material.SetColor("_Color", Color.red);
-            Invoke("EndDamage", 1f);
-        }
-        else
             KnockDown();
+            GetComponentInChildren<Rigidbody>().AddForce(impact*50);
+
+            if(health>=1)
+                Invoke("GetUp", 1.5f);
+        }
+          
+
+
+        if (health >= 4)
+            playerRenderer.material.SetColor("_Color", new Color32(251, 176, 59, 255));
+        else if (health == 3)
+            playerRenderer.material.SetColor("_Color", new Color32(3, 113, 150, 255));
+        else if (health == 2)
+            playerRenderer.material.SetColor("_Color", new Color32(208, 98, 23, 255));
+        else if (health == 1 || health <=0)
+            playerRenderer.material.SetColor("_Color", new Color32(111, 12, 16, 255));
+
+        if (health<=0 && !knockOver)
+            KnockDown();
+       
+        Invoke("EndDamage", 2f);
     }
 
     public void EndDamage()
@@ -386,11 +437,12 @@ public class PlayerController : MonoBehaviour
     //Knocks player into a ragdoll state
     public void KnockDown()
     {
+        isKnockedOver = true;
         //SelectWeapon(0);
         GetComponent<Outline>().enabled = false;
         playerAnim.enabled = false;
         setRigidbodyState(false);
-        setColliderState(true);
+        setColliderState(false);
         setCharacterControllerState(false);
 
     }
@@ -403,10 +455,48 @@ public class PlayerController : MonoBehaviour
         playerAnim.SetTrigger("Getup_trig");
         transform.position = hips.position;
         setRigidbodyState(true);
-        setColliderState(false);
+        setColliderState(true);
         setCharacterControllerState(true);
 
+        isKnockedOver = false;
+
     }
+
+
+    //See what hud element belongs to us based on playerNumber, then activate it
+    public void InitializePlayer()
+    {
+        //And no.... ("PlayerContainer"+playerNumber) does NOT work.
+        if(playerNumber==1)
+        {
+            hudManager = GameObject.Find("PlayerContainer1").GetComponent<HudManager>();
+            GetComponent<Outline>().OutlineColor = new Color32(3, 113, 150, 255);
+            this.gameObject.layer = 9;
+        }
+        else if(playerNumber==2)
+        {
+            hudManager = GameObject.Find("PlayerContainer2").GetComponent<HudManager>();
+            GetComponent<Outline>().OutlineColor = new Color32(111, 12, 16, 255);
+            this.gameObject.layer = 10;
+        }
+        else if (playerNumber==3)
+        {
+            hudManager = GameObject.Find("PlayerContainer3").GetComponent<HudManager>();
+            GetComponent<Outline>().OutlineColor = new Color32(251, 176, 59, 255);
+            this.gameObject.layer = 11;
+        }
+        else
+        {
+            hudManager = GameObject.Find("PlayerContainer4").GetComponent<HudManager>();
+            GetComponent<Outline>().OutlineColor = new Color32(208, 98, 23, 255);
+            this.gameObject.layer = 12;
+        }
+
+        hudManager.Show();
+        hudManager.updateMoney(money);
+        hudManager.updateCI(crowdInfluence);
+    }
+
 
     public void setRigidbodyState(bool state)
     {
@@ -425,7 +515,8 @@ public class PlayerController : MonoBehaviour
 
         foreach (Collider collider in colliders)
         {
-            collider.enabled = state;
+            if (collider.GetType() != typeof(CharacterController))
+                collider.isTrigger = state;
         }
 
     }
@@ -507,29 +598,4 @@ public class PlayerController : MonoBehaviour
 
     }
 
-    private void LateUpdate()
-    {
-        if (health>0)
-        {
-            if (hasGun)
-            {
-                head.LookAt(Target.position);
-                spine.LookAt(Target.position);
-                spine.rotation = spine.rotation * Quaternion.Euler(spineOffset);
-                head.rotation = head.rotation * Quaternion.Euler(headOffset);
-            }
-            else
-            {
-                spine.rotation = spine.rotation * Quaternion.Euler(spineOffset);
-                head.rotation = head.rotation * Quaternion.Euler(headOffset);
-                leftShoulder.rotation = leftShoulder.rotation * Quaternion.Euler(lShoulderOffset);
-                rightShoulder.rotation = rightShoulder.rotation * Quaternion.Euler(rShoulderOffset);
-            }
-        }
-    }
-
-    private void FixedUpdate()
-    {
-
-    }
 }
