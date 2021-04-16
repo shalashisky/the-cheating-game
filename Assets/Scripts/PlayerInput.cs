@@ -30,7 +30,6 @@ public class PlayerInput : MonoBehaviour
 
     private void Start()
     {
-        GetComponent<PlayerController>().playerNumber = playerNumber;
         Debug.Log(playerNumber);
         SelectPlayerInput(playerNumber);
     }
