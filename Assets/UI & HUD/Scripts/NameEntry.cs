@@ -10,7 +10,7 @@ public class NameEntry : MonoBehaviour
     public TextMeshProUGUI nameEntry;
 
     //Button Press Timer
-    float keyTimerMax = 5f; // Seconds
+    float keyTimerMax = 1f; // Seconds
 
     public float currentTime = 0f;
 
@@ -28,6 +28,10 @@ public class NameEntry : MonoBehaviour
 
     public bool timeToUpdate = false;
 
+    int MAX_NAME_LENGTH = 4;
+
+    int curNameLength = 0;
+
 
     // Start is called before the first frame update
     void Start()
@@ -41,7 +45,7 @@ public class NameEntry : MonoBehaviour
         //Button script with timer
         currentTime -= Time.deltaTime;
 
-        if(currentTime < 0)
+        if (currentTime < 0)
         {
             currentTime = 0;
         }
@@ -55,8 +59,11 @@ public class NameEntry : MonoBehaviour
         {
             initialPress = false;
         }
+        
 
     }
+
+
 
     public void AssignPlayer(int playerNum)
     {
@@ -92,11 +99,45 @@ public class NameEntry : MonoBehaviour
         {
             KeyHandler(6, 11);
         }
+        else if (letterGroup == "GHI")
+        {
+            KeyHandler(12, 17);
+        }
+        else if (letterGroup == "JKL")
+        {
+            KeyHandler(18, 23);
+        }
+        else if (letterGroup == "MNO")
+        {
+            KeyHandler(24, 29);
+        }
+        else if (letterGroup == "PQRS")
+        {
+            KeyHandler(30, 37);
+        }
+        else if (letterGroup == "TUV")
+        {
+            KeyHandler(38, 43);
+        }
+        else if (letterGroup == "WXYZ")
+        {
+            KeyHandler(44, 51);
+        }
+        else if (letterGroup == "!#?@")
+        {
+            KeyHandler(52, 59);
+        }
+        else if (letterGroup == "123")
+        {
+            KeyHandler(60, 69); // nice
+        }
     }
 
    
     void KeyHandler(int min, int max) // take the min and max range for the index of the set group. EX ABCabc is min 0 - 6
     {
+
+        if(curNameLength < MAX_NAME_LENGTH) { 
 
         timeToUpdate = true;
 
@@ -107,28 +148,27 @@ public class NameEntry : MonoBehaviour
             currentLetter = letterArray[i];
             initialPress = false;
             currentTime = keyTimerMax;
-            Debug.Log("First");
         }
         else if (!initialPress)
         {
             i++; //cycle through letters
             currentLetter = letterArray[i];
             currentTime = keyTimerMax;
-            Debug.Log("Second");
         }
 
-        if (!initialPress && i >= max)
+        if (!initialPress && i > max)
         {
             i = min; // reset index and loop letters
             currentLetter = letterArray[i];
             currentTime = keyTimerMax;
             nameEntry.text += currentLetter;
-            Debug.Log("Third");
         }
 
         nameEntry.text = playerName + currentLetter;
 
         Debug.Log(i);
+
+        }
 
         //if on click button again and timer is not 0 then letterArray Index ++, if letter index hits max letters then loop back
     }
@@ -139,7 +179,32 @@ public class NameEntry : MonoBehaviour
         if (timeToUpdate) { 
         playerName += currentLetter;
         nameEntry.text = playerName;
+        curNameLength++;
         timeToUpdate = false;
+        }
+    }
+
+    public void CancelPrevButton() //Makes it so other buttons won't bleed into each other
+    {
+        //Figure this out
+    }
+
+    public void BackSpace() //Delete a letter
+    {
+        if(curNameLength > 0) {
+            //playerName.Substring(0, playerName.Length - 1);
+        playerName = playerName.Remove(playerName.Length - 1);
+        nameEntry.text = playerName;
+        curNameLength--;
+        }
+    }
+
+    public void Space() //Add a space
+    {
+        if (curNameLength < MAX_NAME_LENGTH) { 
+        playerName += "_";
+        nameEntry.text = playerName;
+        curNameLength++;
         }
     }
 
@@ -148,7 +213,12 @@ public class NameEntry : MonoBehaviour
     //Check the player number to assign the correct nameEntry GO
 
 
-
+    public void SetPlayerTag(int playerNum)
+    {
+    TextMeshProUGUI temp;
+    temp = GameObject.Find("PlayerNameP" + playerNum).GetComponent<TextMeshProUGUI>();
+    temp.text = playerName; 
+    }
 
 
 

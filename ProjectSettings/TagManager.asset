@@ -12,6 +12,7 @@ TagManager:
   - Weapon_Rifle
   - LookPosition
   - Player_hurtbox
+  - CursorP1
   layers:
   - Default
   - TransparentFX
